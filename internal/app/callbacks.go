@@ -709,7 +709,7 @@ func registerWidgetCallbacks(app *App) {
 			app.Repository.HandleHistory(err)
 		}
 	}
-	app.Changes.Split.OnResize = app.persistCommitHistoryHeight
+	app.Changes.Split.OnResizeEnd = app.persistCommitHistoryHeight
 
 	app.ContentSplit.OnResize = func(size int) {
 		if size <= 0 {
@@ -745,7 +745,8 @@ func registerWidgetCallbacks(app *App) {
 		}
 	}
 
-	app.SplitPanel.OnResize = app.persistSidebarWidth
+	app.SplitPanel.OnResize = app.resizeSidebar
+	app.SplitPanel.OnResizeEnd = app.persistSidebarLayout
 
 	app.BottomPanel.Tabs.Config.OnTabClick = func(index int) {
 		panels := app.BottomPanel.PanelIDs()

@@ -304,7 +304,7 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	}
 	sidebar.Tabs.Config.Reorderable = true
 	hasFolders := len(ws.Paths()) > 0
-	sidebar.Visible = hasFolders
+	sidebar.Visible = hasFolders && !state.SidebarHidden
 	sidebar.Borders = borders
 
 	splitPanel := ui.NewSplitPanelWidget()
@@ -312,9 +312,9 @@ func BuildAppFromConfig(cfg *config.AppConfig, borders *term.BorderSet, ws *work
 	splitPanel.Right = contentSplit
 	splitPanel.Borders = borders
 	splitPanel.DividerPos = ui.DefaultSidebarWidth
-	if state.SidebarWidth > 0 {
+	if state.SidebarWidth >= ui.MinSidebarWidth {
 		splitPanel.DividerPos = state.SidebarWidth
-	} else if cfg.Settings.Sidebar.Width > 0 {
+	} else if cfg.Settings.Sidebar.Width >= ui.MinSidebarWidth {
 		splitPanel.DividerPos = cfg.Settings.Sidebar.Width
 	}
 	panelPos := state.PanelPosition

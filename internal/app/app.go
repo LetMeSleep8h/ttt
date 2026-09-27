@@ -166,6 +166,11 @@ func formatKeyDisplay(key string) string {
 }
 
 func (a *App) ShowSidebar() {
+	a.showSidebar()
+	a.persistSidebarLayout()
+}
+
+func (a *App) showSidebar() {
 	a.Sidebar.Visible = true
 	a.SplitPanel.ShowLeft = true
 	if a.SplitPanel.DividerPos < ui.MinSidebarWidth {
@@ -176,6 +181,11 @@ func (a *App) ShowSidebar() {
 }
 
 func (a *App) HideSidebar() {
+	a.hideSidebar()
+	a.persistSidebarLayout()
+}
+
+func (a *App) hideSidebar() {
 	a.Sidebar.InvalidatePointerInteraction()
 	a.Sidebar.Visible = false
 	a.SplitPanel.ShowLeft = false
@@ -207,21 +217,35 @@ func (a *App) ToggleSidebar() {
 }
 
 func (a *App) SetSidebarWidth(w int) {
+	a.resizeSidebar(w)
+	a.persistSidebarLayout()
+}
+
+func (a *App) resizeSidebar(w int) {
 	if w <= 0 {
-		a.HideSidebar()
+		a.hideSidebar()
 		return
 	}
 	if !a.Sidebar.Visible {
-		a.ShowSidebar()
+		a.showSidebar()
 	}
 	a.SplitPanel.DividerPos = w
 }
 
-func (a *App) persistSidebarWidth(w int) {
-	a.SetSidebarWidth(w)
-	a.State.SidebarWidth = a.SplitPanel.DividerPos
+// Widths below MinSidebarWidth are not saved: dragging the sidebar closed
+// passes through them, and restoring one would reopen it as a sliver.
+func (a *App) persistSidebarLayout() {
+	next := a.State
+	next.SidebarHidden = !a.Sidebar.Visible
+	if w := a.SplitPanel.DividerPos; w >= ui.MinSidebarWidth {
+		next.SidebarWidth = w
+	}
+	if next.SidebarHidden == a.State.SidebarHidden && next.SidebarWidth == a.State.SidebarWidth {
+		return
+	}
+	a.State = next
 	if err := config.SaveState(a.State); err != nil {
-		a.StatusError("Failed to save sidebar width: " + err.Error())
+		a.StatusError("Failed to save sidebar layout: " + err.Error())
 	}
 }
 

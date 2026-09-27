@@ -13,7 +13,7 @@ const DefaultSidebarWidth = 30
 // MinSidebarWidth is the minimum width below which the sidebar resets to
 // DefaultSidebarWidth when toggled back on. This prevents the sidebar from
 // reopening at an unusably small width after being dragged nearly closed.
-const MinSidebarWidth = 10
+const MinSidebarWidth = 15
 
 type SplitPanelWidget struct {
 	BaseWidget
@@ -24,6 +24,7 @@ type SplitPanelWidget struct {
 	ShowLeft                  bool
 	RightBorderStartY         int
 	OnResize                  func(width int)
+	OnResizeEnd               func()
 	OnLeftClick               func()
 	OnRightClick              func()
 	dragging                  bool
@@ -200,7 +201,7 @@ func (s *SplitPanelWidget) HandleEvent(ev tcell.Event) EventResult {
 			}
 			return EventCaptured
 		}
-		s.dragging = false
+		s.endDrag()
 		return EventIgnored
 	}
 
@@ -321,9 +322,19 @@ func (s *SplitPanelWidget) DividerScreenX() int {
 	return r.X + s.clampedDividerX(r.W)
 }
 
+func (s *SplitPanelWidget) endDrag() {
+	if !s.dragging {
+		return
+	}
+	s.dragging = false
+	if s.OnResizeEnd != nil {
+		s.OnResizeEnd()
+	}
+}
+
 func (s *SplitPanelWidget) CancelPointerCapture() bool {
 	canceled := s.dragging || s.capturedChild != nil
-	s.dragging = false
+	s.endDrag()
 	s.wasPressed = false
 	s.capturedChild = nil
 	s.cancelingPointerCapture = true
@@ -342,7 +353,7 @@ func (s *SplitPanelWidget) CancelPointerCapture() bool {
 
 func (s *SplitPanelWidget) InvalidatePointerInteraction() bool {
 	invalidated := s.dragging || s.capturedChild != nil
-	s.dragging = false
+	s.endDrag()
 	s.wasPressed = false
 	s.capturedChild = nil
 	s.cancelingPointerCapture = true
