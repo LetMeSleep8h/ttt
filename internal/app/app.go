@@ -485,6 +485,7 @@ func (a *App) CloseAllTerminals() {
 
 func (a *App) refreshWorkspaceWidgets() {
 	paths := a.Workspace.Paths()
+	a.RememberRecentFolders()
 	wasEmpty := len(a.Explorer.Roots) == 0
 
 	a.Explorer.SetRoots(paths)

@@ -2,8 +2,24 @@ package app
 
 import (
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 )
+
+func TestPushRecent(t *testing.T) {
+	got := pushRecent([]string{"/a", "/b", "/c"}, []string{"/c", "/d"})
+	if want := []string{"/c", "/d", "/a", "/b"}; !slices.Equal(got, want) {
+		t.Fatalf("pushRecent = %v, want %v", got, want)
+	}
+	var many []string
+	for i := range maxRecentFolders + 5 {
+		many = append(many, strconv.Itoa(i))
+	}
+	if got := pushRecent(many, []string{"new"}); len(got) != maxRecentFolders || got[0] != "new" {
+		t.Fatalf("pushRecent over the cap = %v", got)
+	}
+}
 
 func TestCloneSource(t *testing.T) {
 	tests := []struct {

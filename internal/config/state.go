@@ -13,6 +13,7 @@ type State struct {
 	CommitHistoryHeight int      `json:"commitHistoryHeight,omitempty"`
 	PanelHeight         int      `json:"panelHeight,omitempty"`
 	PanelWidth          int      `json:"panelWidth,omitempty"`
+	RecentFolders       []string `json:"recentFolders,omitempty"`
 }
 
 func LoadState() State {

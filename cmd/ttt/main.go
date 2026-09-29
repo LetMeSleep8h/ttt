@@ -370,6 +370,7 @@ Docs: https://tttedit.dev
 	editor.Root.SetSize(w, h)
 
 	editor.PendingFileTargets = fileTargets
+	editor.RememberRecentFolders()
 	if len(editor.Workspace.Paths()) == 0 && len(fileTargets) == 0 && len(prURLs) == 0 {
 		editor.ShowEmptyState()
 	}

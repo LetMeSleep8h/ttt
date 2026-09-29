@@ -34,10 +34,10 @@ const (
 	welcomeCopyHint  = "↑↓ select   enter open   c copy path"
 	welcomeCopyIcon  = "⧉"
 	welcomeShortcutW = 6
-	// Long favorite paths are cut from the left rather than stretching the list.
+	// Long folder paths are cut from the left rather than stretching the list.
 	welcomeMaxListW = 64
-	// Fewest favorites kept on screen before the title gives way instead.
-	welcomeMinFavorites = 3
+	// Fewest folders kept on screen before the title gives way instead.
+	welcomeMinFolders = 3
 )
 
 type welcomeItem struct {
@@ -99,7 +99,7 @@ type welcomeView struct {
 	rowX, rowW int
 	rowY       []int
 	copyX      int
-	secOff     int // first favorite shown when the list scrolls
+	secOff     int // first folder shown when the folder sections scroll
 }
 
 func (v *welcomeView) Height() int { return 0 }
@@ -134,11 +134,11 @@ func (v *welcomeView) Render(surface widgets.Surface) {
 			break
 		}
 	}
-	// A long favorites list scrolls inside its section: the page keeps the
-	// title, spacing and hint it has with welcomeMinFavorites of them.
+	// Long folder lists scroll inside their sections: the page keeps the
+	// title, spacing and hint it has with welcomeMinFolders of them.
 	l := layoutWelcome(w, h, len(v.items), tight, sections)
 	hidden := 0
-	if excess := len(v.items) - secStart - welcomeMinFavorites; excess > 0 {
+	if excess := len(v.items) - secStart - welcomeMinFolders; excess > 0 {
 		want := layoutWelcome(w, h, len(v.items)-excess, tight-excess, sections)
 		for hidden < excess && (len(l.title) != len(want.title) || l.gap != want.gap || l.hint != want.hint) {
 			hidden++
@@ -201,11 +201,8 @@ func (v *welcomeView) Render(surface widgets.Surface) {
 		if i > first && (!v.items[i].tight || sectionTop) {
 			y += l.gap
 		}
-		if sectionTop && len(l.title) > 0 {
-			heading := v.items[secStart].section
-			if hidden > 0 {
-				heading = fmt.Sprintf("%s  %d–%d of %d", heading, v.secOff+1, v.secOff+shown, shown+hidden)
-			}
+		if (sectionTop || v.items[i].section != "") && len(l.title) > 0 {
+			heading := v.sectionHeading(i, secStart+v.secOff, secStart+v.secOff+shown)
 			y++
 			surface.DrawText(v.rowX+2, y, heading, v.rowX+v.rowW-2, term.StyleMuted)
 			y++
@@ -223,6 +220,24 @@ func (v *welcomeView) Render(surface widgets.Surface) {
 	if l.hint {
 		surface.DrawText((w-textwidth.String(hint))/2, l.top+l.height-1, hint, w, term.StyleMuted)
 	}
+}
+
+// sectionHeading names the section holding item i, with the range of its
+// items shown when the rows [top, end) do not show all of them.
+func (v *welcomeView) sectionHeading(i, top, end int) string {
+	start := i
+	for start > 0 && v.items[start].section == "" {
+		start--
+	}
+	stop := i + 1
+	for stop < len(v.items) && v.items[stop].section == "" {
+		stop++
+	}
+	from, to := max(start, top), min(stop, end)
+	if from == start && to == stop {
+		return v.items[start].section
+	}
+	return fmt.Sprintf("%s  %d–%d of %d", v.items[start].section, from-start+1, to-start, stop-start)
 }
 
 func (v *welcomeView) renderRow(surface widgets.Surface, y int, item welcomeItem, selected bool) {

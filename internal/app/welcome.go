@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -28,7 +29,8 @@ var welcomeCommands = []struct{ label, commandID string }{
 }
 
 // welcomeItems lists the start actions with their shortcuts, then the
-// favorite folders that exist, each with its path as written in settings.
+// favorite folders that exist, each with its path as written in settings,
+// then the recently opened folders that exist and are not favorites.
 func (a *App) welcomeItems() []welcomeItem {
 	var items []welcomeItem
 	for _, c := range welcomeCommands {
@@ -56,6 +58,28 @@ func (a *App) welcomeItems() []welcomeItem {
 		if len(items) == len(welcomeCommands) {
 			item.section = "Favorites"
 			item.tight = false
+		}
+		items = append(items, item)
+	}
+	first := true
+	for _, abs := range a.State.RecentFolders {
+		if a.favoriteIndex(abs) >= 0 {
+			continue
+		}
+		if info, err := os.Stat(abs); err != nil || !info.IsDir() {
+			continue
+		}
+		item := welcomeItem{
+			label:  filepath.Base(abs),
+			detail: tildePath(abs),
+			tight:  true,
+			run:    func() { a.openFolderPath(abs) },
+			copy:   func() { a.FileOpCopyAbsolutePath(abs) },
+		}
+		if first {
+			item.section = "Recent"
+			item.tight = false
+			first = false
 		}
 		items = append(items, item)
 	}
@@ -88,9 +112,11 @@ func (a *App) refreshWelcome() {
 		return
 	}
 	v.items = a.welcomeItems()
-	v.note = ""
-	if len(v.items) == len(welcomeCommands) {
-		v.note = welcomeFavoritesHint
+	v.note = welcomeFavoritesHint
+	for _, item := range v.items {
+		if item.section == "Favorites" {
+			v.note = ""
+		}
 	}
 	v.selected = min(v.selected, len(v.items)-1)
 }
@@ -228,4 +254,37 @@ func (a *App) RemoveFavorite() {
 			a.removeFavorite(i)
 		}
 	}, nil)
+}
+
+const maxRecentFolders = 10
+
+// pushRecent puts paths at the front of recent, most recent first, without
+// duplicates.
+func pushRecent(recent, paths []string) []string {
+	out := slices.Clone(paths)
+	for _, p := range recent {
+		if !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	return out[:min(len(out), maxRecentFolders)]
+}
+
+// RememberRecentFolders records the open folders for the welcome page. It
+// merges into the list on disk, so another ttt window's folders are kept.
+func (a *App) RememberRecentFolders() {
+	paths := a.Workspace.Paths()
+	if len(paths) == 0 {
+		return
+	}
+	disk := config.LoadState()
+	recent := pushRecent(disk.RecentFolders, paths)
+	a.State.RecentFolders = recent
+	if slices.Equal(recent, disk.RecentFolders) {
+		return
+	}
+	disk.RecentFolders = recent
+	if err := config.SaveState(disk); err != nil {
+		a.StatusError("Failed to save recent folders: " + err.Error())
+	}
 }

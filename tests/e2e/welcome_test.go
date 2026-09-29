@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/eugenioenko/ttt/internal/config"
 	"github.com/eugenioenko/ttt/internal/core/clipboard"
 	"github.com/eugenioenko/ttt/internal/widgets"
 	"github.com/gdamore/tcell/v3"
@@ -292,4 +293,66 @@ func TestWelcomeClickLeavesFocusInDialog(t *testing.T) {
 		}
 	}
 	t.Fatalf("Open Workspace row not found:\n%s", h.screenText())
+}
+
+// Opened folders are saved to state.json and listed under Recent, most recent
+// first, leaving out favorites and folders that no longer exist.
+func TestWelcomeRecentFolders(t *testing.T) {
+	h := newTestHarness(t, 100, 40)
+	defer h.stop()
+
+	base := t.TempDir()
+	mk := func(name string) string {
+		dir := filepath.Join(base, name)
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	fav, older, newer, gone := mk("fav-proj"), mk("older-proj"), mk("newer-proj"), mk("gone-proj")
+	h.app.Settings.Welcome.Favorites = []string{fav}
+	for _, dir := range []string{fav, gone, older, newer} {
+		h.app.Workspace.Folders = nil
+		h.app.Workspace.AddFolder(dir)
+		h.app.RememberRecentFolders()
+	}
+	if err := os.Remove(gone); err != nil {
+		t.Fatal(err)
+	}
+	if got := config.LoadState().RecentFolders; len(got) != 4 || got[0] != newer {
+		t.Fatalf("saved recent folders = %v, want 4 with %s first", got, newer)
+	}
+
+	h.exec("workspace.close")
+	h.redraw()
+	h.assertContains("Recent")
+	h.assertNotContains("gone-proj")
+	rows := 0
+	for _, row := range strings.Split(h.screenText(), "\n") {
+		if strings.Contains(row, "fav-proj") {
+			rows++
+		}
+	}
+	if rows != 1 {
+		t.Fatalf("fav-proj on %d rows, want once under Favorites", rows)
+	}
+	text := h.screenText()
+	if strings.Index(text, "newer-proj") > strings.Index(text, "older-proj") {
+		t.Fatalf("recent folders not most recent first:\n%s", text)
+	}
+	for y := 0; y < 40; y++ {
+		row := h.screenRow(y)
+		if x := displayColumnOf(row, "older-proj"); x >= 0 {
+			h.click(x, y)
+			h.redraw()
+			if paths := h.app.Workspace.Paths(); len(paths) != 1 || paths[0] != older {
+				t.Fatalf("workspace = %v, want [%s]", paths, older)
+			}
+			if got := config.LoadState().RecentFolders; got[0] != older {
+				t.Fatalf("reopened folder not moved to the front: %v", got)
+			}
+			return
+		}
+	}
+	t.Fatalf("recent row not found:\n%s", h.screenText())
 }
