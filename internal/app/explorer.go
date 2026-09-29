@@ -193,6 +193,7 @@ func emptyExplorerNodes() []*widgets.TreeNode {
 	return []*widgets.TreeNode{
 		{Label: "No folder open", Muted: true},
 		{ID: explorerActionPrefix + "workspace.openFolder", Label: "Open Folder…"},
+		{ID: explorerActionPrefix + "workspace.clone", Label: "Clone Repository…"},
 	}
 }
 

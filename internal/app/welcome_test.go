@@ -5,6 +5,27 @@ import (
 	"testing"
 )
 
+func TestCloneSource(t *testing.T) {
+	tests := []struct {
+		input, repo, name string
+		haveGH, viaGH     bool
+	}{
+		{"owner/repo", "owner/repo", "repo", true, true},
+		{"owner/repo", "https://github.com/owner/repo", "repo", false, false},
+		{" https://github.com/owner/repo.git ", "https://github.com/owner/repo.git", "repo", true, false},
+		{"git@github.com:owner/repo.git", "git@github.com:owner/repo.git", "repo", true, false},
+		{"https://gitlab.com/group/sub/proj/", "https://gitlab.com/group/sub/proj/", "proj", true, false},
+		{"-o/repo", "-o/repo", "repo", true, false},
+	}
+	for _, tt := range tests {
+		repo, name, viaGH := cloneSource(tt.input, tt.haveGH)
+		if repo != tt.repo || name != tt.name || viaGH != tt.viaGH {
+			t.Errorf("cloneSource(%q, %v) = %q, %q, %v; want %q, %q, %v",
+				tt.input, tt.haveGH, repo, name, viaGH, tt.repo, tt.name, tt.viaGH)
+		}
+	}
+}
+
 func TestLayoutWelcomeShrinksTitleBeforeSpacing(t *testing.T) {
 	tests := []struct {
 		w, h      int
@@ -12,7 +33,7 @@ func TestLayoutWelcomeShrinksTitleBeforeSpacing(t *testing.T) {
 		gap       int
 	}{
 		{120, 40, 6, 1},
-		{80, 17, 3, 1},
+		{80, 19, 3, 1},
 		{10, 19, 1, 1},
 		{40, 8, 1, 0},
 		{40, 4, 0, 0},

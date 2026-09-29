@@ -18,7 +18,7 @@ func TestWelcomeTabListsStartActions(t *testing.T) {
 
 	h.exec("help.welcome")
 	h.redraw()
-	for _, label := range []string{"Welcome", "Open Folder…", "New File"} {
+	for _, label := range []string{"Welcome", "Open Folder…", "Clone Repository…", "New File"} {
 		h.assertContains(label)
 	}
 }
@@ -34,10 +34,10 @@ func TestEmptyExplorerRunsItsActions(t *testing.T) {
 	h.redraw()
 	h.assertContains("No folder open")
 
-	h.app.Explorer.Tree.SelectByID("command:workspace.openFolder")
+	h.app.Explorer.Tree.SelectByID("command:workspace.clone")
 	h.app.Explorer.Tree.ActivateSelected()
-	if len(ran) != 1 || ran[0] != "workspace.openFolder" {
-		t.Fatalf("actions run = %v, want [workspace.openFolder]", ran)
+	if len(ran) != 1 || ran[0] != "workspace.clone" {
+		t.Fatalf("actions run = %v, want [workspace.clone]", ran)
 	}
 }
 

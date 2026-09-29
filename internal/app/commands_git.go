@@ -423,6 +423,12 @@ func registerWorkspaceCommands(app *App) {
 	})
 
 	reg.Register(command.Command{
+		ID: "workspace.clone", Title: "Git: Clone Repository",
+		Keywords: []string{"git", "github", "clone", "repository", "repo", "download"},
+		Handler:  app.CloneRepository,
+	})
+
+	reg.Register(command.Command{
 		ID: "help.welcome", Title: "Help: Welcome",
 		Keywords: []string{"welcome", "start", "getting started", "home"},
 		Handler:  app.ShowWelcome,

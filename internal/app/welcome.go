@@ -20,6 +20,7 @@ const (
 
 var welcomeCommands = []struct{ label, commandID string }{
 	{"Open Folder…", "workspace.openFolder"},
+	{"Clone Repository…", "workspace.clone"},
 	{"New File", "file.new"},
 	{"Open Workspace…", "workspace.open"},
 	{"Settings", "settings.openUI"},

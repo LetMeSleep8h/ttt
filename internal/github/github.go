@@ -3,6 +3,7 @@ package github
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -45,6 +46,15 @@ func ParsePRURL(url string) (owner, repo string, number int, err error) {
 		}
 	}
 	return "", "", 0, fmt.Errorf("could not parse PR URL: %s", url)
+}
+
+func CloneRepo(repo, dest string) error {
+	cmd := exec.Command("gh", "repo", "clone", repo, dest)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func FetchPRInfo(owner, repo string, number int) (*PRInfo, error) {

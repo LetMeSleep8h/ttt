@@ -226,6 +226,17 @@ func Pull(dir string) error {
 	return nil
 }
 
+// Clone runs without a terminal prompt: the editor owns the tty, so git asking
+// for credentials would hang instead of failing.
+func Clone(url, dest string) error {
+	cmd := exec.Command("git", "clone", "--", url, dest)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func hasUpstream(dir string) bool {
 	cmd := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	return cmd.Run() == nil
