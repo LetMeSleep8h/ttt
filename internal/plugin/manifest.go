@@ -26,6 +26,32 @@ type Manifest struct {
 	Entry       string        `json:"entry"`
 	API         int           `json:"api,omitempty"`
 	Permissions PermissionSet `json:"permissions"`
+	Grammars    []Grammar     `json:"grammars,omitempty"`
+}
+
+// Grammar is a TextMate grammar the plugin contributes. Path is relative to
+// the plugin directory.
+type Grammar struct {
+	Path      string   `json:"path"`
+	Language  string   `json:"language,omitempty"`
+	FileTypes []string `json:"fileTypes,omitempty"`
+}
+
+// GrammarFile resolves symlinks so a grammar cannot point outside the plugin
+// directory, which the lexical check in LoadManifest does not catch.
+func (p *Plugin) GrammarFile(g Grammar) (string, error) {
+	root, err := filepath.EvalSymlinks(p.Dir)
+	if err != nil {
+		return "", err
+	}
+	path, err := filepath.EvalSymlinks(filepath.Join(p.Dir, g.Path))
+	if err != nil {
+		return "", err
+	}
+	if !withinDir(root, path) {
+		return "", fmt.Errorf("grammar path %q resolves outside plugin directory", g.Path)
+	}
+	return path, nil
 }
 
 // Title is the human-facing plugin name shown in the UI: DisplayName when the
@@ -52,8 +78,16 @@ func LoadManifest(dir string) (Manifest, error) {
 	if m.Name == "" {
 		return Manifest{}, fmt.Errorf("manifest missing required field: name")
 	}
-	if m.Entry == "" {
+	if m.Entry == "" && len(m.Grammars) == 0 {
 		return Manifest{}, fmt.Errorf("manifest missing required field: entry")
+	}
+	for _, g := range m.Grammars {
+		if g.Path == "" {
+			return Manifest{}, fmt.Errorf("grammar missing required field: path")
+		}
+		if !withinDir(dir, filepath.Join(dir, g.Path)) {
+			return Manifest{}, fmt.Errorf("grammar path %q escapes plugin directory", g.Path)
+		}
 	}
 	if m.API == 0 {
 		m.API = 1
