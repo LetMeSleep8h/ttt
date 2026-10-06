@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/textwidth"
 	"github.com/eugenioenko/ttt/internal/widgets"
@@ -33,6 +34,7 @@ type TabDragAutoScrollTick struct {
 
 type TabBarWidget struct {
 	BaseWidget
+	Icons                     string
 	Tabs                      []Tab
 	Borders                   *term.BorderSet
 	ScrollOffset              int
@@ -79,14 +81,19 @@ func (t *TabBarWidget) SetTabs(tabs []Tab) {
 
 func (t *TabBarWidget) tabLabel(tab Tab) string {
 	name := filepath.Base(tab.Name)
-	label := " "
+	prefix := " "
+	suffix := ""
 	if tab.Dirty {
-		label += "● "
+		prefix += "● "
 	}
-	label += name
 	if tab.ReadOnly {
-		label += " (readonly)"
+		if icons.IsNerd(t.Icons) {
+			prefix += icons.Get(t.Icons, icons.Lock) + " "
+		} else {
+			suffix = " (readonly)"
+		}
 	}
+	label := prefix + name + suffix
 	if tab.Active && tab.Closable {
 		if tab.Pinned {
 			label += " ♦"
