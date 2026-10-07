@@ -37,8 +37,12 @@ type Terminal struct {
 	// that prompt is still being edited; promptCol is the column it starts at.
 	promptMarker *xterm.Marker
 	promptCol    int
-	OnUpdate     func()
-	OnExit       func()
+	// bash (redraw=last) prompts are fixed up when the repaint arrives, so
+	// the resize only flags it.
+	promptRedrawsLast   bool
+	promptRedrawPending bool
+	OnUpdate            func()
+	OnExit              func()
 
 	updatePending atomic.Bool
 }
@@ -73,7 +77,7 @@ func New(shell string, cols, rows, scrollbackMax int, env []string, dir string) 
 		io.WriteString(pt, s)
 	})
 
-	cmd := pt.Command(shell)
+	cmd := pt.Command(shell, shellArgs(shell)...)
 	// Verify dir exists before setting it — chaos monkey and random commands can
 	// delete the workspace dir, causing Start to fail with "no such file or directory"
 	if dir != "" {
@@ -153,7 +157,11 @@ func (t *Terminal) readLoop() {
 		n, err := t.pt.Read(buf)
 		if n > 0 {
 			t.mu.Lock()
-			t.term.Write(buf[:n])
+			out := buf[:n]
+			if t.promptRedrawPending {
+				out = t.takePromptRedraw(out)
+			}
+			t.term.Write(out)
 			t.appendRawTail(buf[:n])
 			t.mu.Unlock()
 			if t.OnUpdate != nil && t.updatePending.CompareAndSwap(false, true) {
@@ -194,7 +202,11 @@ func (t *Terminal) resizeEmulator(cols, rows int) bool {
 	// ConPTY repaints the screen itself on resize; the blanking is only for
 	// Unix ptys, where the shell's SIGWINCH redraw is what brings it back.
 	if runtime.GOOS != "windows" {
-		t.clearPromptForRedraw()
+		if t.promptRedrawsLast {
+			t.promptRedrawPending = t.promptMarker != nil
+		} else {
+			t.clearPromptForRedraw()
+		}
 	}
 	t.cols = cols
 	t.rows = rows

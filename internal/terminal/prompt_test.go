@@ -77,3 +77,113 @@ func TestResizeKeepsOutputBeforeSameRowPrompt(t *testing.T) {
 		t.Fatalf("prompt not cleared:\n%s", screen)
 	}
 }
+
+const bashPrompt = "\x1b]133;A;redraw=last\a/home/user/project [main] ➜ "
+
+// readlineRedraw is what bash sends after SIGWINCH: its cursor-up count comes
+// from a prompt layout ttt cannot see, so the tests vary it.
+func readlineRedraw(ups int, line string) string {
+	return "\r\x1b[K" + strings.Repeat("\x1b[A", ups) + line
+}
+
+// feedOutput passes shell output to the emulator the way readLoop does.
+func feedOutput(term *Terminal, s string) {
+	out := []byte(s)
+	if term.promptRedrawPending {
+		out = term.takePromptRedraw(out)
+	}
+	term.term.Write(out)
+}
+
+func TestBashRedrawLeavesOnePrompt(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, "earlier output\r\n"+bashPrompt)
+
+	for i, cols := range []int{25, 20, 15, 40} {
+		term.resizeEmulator(cols, 10)
+		feedOutput(term, readlineRedraw(i%3, bashPrompt))
+	}
+
+	screen := term.term.String()
+	if n := strings.Count(screen, "/home/user"); n != 1 {
+		t.Fatalf("%d prompts after resizing, want 1:\n%s", n, screen)
+	}
+	lines := strings.Split(screen, "\n")
+	if lines[0] != "earlier output" || !strings.HasPrefix(lines[1], "/home/user") {
+		t.Fatalf("prompt should follow the earlier output directly:\n%s", screen)
+	}
+}
+
+func TestBashRedrawWithWrappedInput(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	input := "echo " + strings.Repeat("x", 30)
+	feedOutput(term, "earlier output\r\n"+bashPrompt+input)
+
+	term.resizeEmulator(20, 10)
+	feedOutput(term, readlineRedraw(2, bashPrompt+input))
+
+	screen := term.term.String()
+	if n := strings.Count(screen, "/home/user"); n != 1 {
+		t.Fatalf("%d prompts after resizing, want 1:\n%s", n, screen)
+	}
+	if !strings.HasPrefix(screen, "earlier output\n") {
+		t.Fatalf("output above the prompt was overwritten:\n%s", screen)
+	}
+}
+
+// readline repaints only the last line of a multi-line prompt, which is where
+// the integration puts the prompt mark.
+func TestBashRedrawKeepsEarlierPromptLines(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, "first prompt line\r\n"+bashPrompt)
+
+	term.resizeEmulator(20, 10)
+	feedOutput(term, readlineRedraw(1, bashPrompt))
+
+	screen := term.term.String()
+	if n := strings.Count(screen, "first prompt line"); n != 1 {
+		t.Fatalf("first prompt line appears %d times, want 1:\n%s", n, screen)
+	}
+	if n := strings.Count(screen, "/home/user"); n != 1 {
+		t.Fatalf("%d prompts after resizing, want 1:\n%s", n, screen)
+	}
+}
+
+func TestBashRedrawIgnoresOtherOutput(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, bashPrompt)
+
+	term.resizeEmulator(20, 10)
+	feedOutput(term, "job done\r\n")
+	if term.promptRedrawPending {
+		t.Fatal("redraw still pending after unrelated output")
+	}
+
+	feedOutput(term, readlineRedraw(0, "kept"))
+	if !strings.Contains(term.term.String(), "kept") {
+		t.Fatalf("later output was rewritten:\n%s", term.term.String())
+	}
+}
+
+func TestBashRedrawSkippedWhileCommandRuns(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, bashPrompt+"sleep 5\r\n\x1b]133;C\a")
+
+	term.resizeEmulator(20, 10)
+
+	if term.promptRedrawPending {
+		t.Fatal("a running command's output would be treated as a prompt redraw")
+	}
+}
+
+func TestBashRedrawWithDisposedMarker(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, bashPrompt)
+	term.resizeEmulator(20, 10)
+	term.promptMarker.Dispose()
+
+	redraw := []byte(readlineRedraw(1, bashPrompt))
+	if got := term.takePromptRedraw(redraw); string(got) != string(redraw) {
+		t.Fatalf("redraw rewritten without a live prompt marker: %q", got)
+	}
+}
