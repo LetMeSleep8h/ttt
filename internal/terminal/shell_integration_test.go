@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -37,12 +38,39 @@ func TestShellArgsLoadsBashIntegration(t *testing.T) {
 		t.Fatal("written integration script differs from the embedded one")
 	}
 
+	if info, err := os.Stat(args[1]); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("integration script mode = %v, want 0600", info.Mode().Perm())
+	}
+
 	if err := os.WriteFile(args[1], []byte("stale"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	shellArgs("/usr/bin/bash")
 	if got, _ := os.ReadFile(args[1]); !bytes.Equal(got, bashIntegration) {
 		t.Fatal("a stale integration script was not replaced")
+	}
+}
+
+// Another user able to write the directory could replace the script bash
+// runs, so a loosened directory is tightened back to private.
+func TestShellArgsKeepsScriptDirectoryPrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("bash integration is Unix-only")
+	}
+	useTempCache(t)
+	dir := filepath.Join(os.Getenv("XDG_CACHE_HOME"), "ttt")
+	if err := os.MkdirAll(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+
+	if shellArgs("/bin/bash") == nil {
+		t.Fatal("shellArgs gave up on a directory the user owns")
+	}
+	if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o700 {
+		t.Fatalf("script directory mode = %v, want 0700", info.Mode().Perm())
 	}
 }
 

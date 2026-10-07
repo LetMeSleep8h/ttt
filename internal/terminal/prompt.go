@@ -98,7 +98,7 @@ func (t *Terminal) takePromptRedraw(p []byte) []byte {
 		rest = p2
 	}
 	marker := t.promptMarker
-	if !ok || len(rest) == 0 || marker == nil || marker.IsDisposed {
+	if !ok || !bytes.Contains(rest, []byte("\x1b]133;A")) || marker == nil || marker.IsDisposed {
 		return p
 	}
 	buf := t.term.NormalBuffer()

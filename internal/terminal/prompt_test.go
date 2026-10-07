@@ -187,3 +187,16 @@ func TestBashRedrawWithDisposedMarker(t *testing.T) {
 		t.Fatalf("redraw rewritten without a live prompt marker: %q", got)
 	}
 }
+
+// A background job can start its output with the same carriage return and
+// erase; without the repaint's prompt mark it is not readline.
+func TestBashRedrawRequiresPromptMark(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, bashPrompt)
+	term.resizeEmulator(20, 10)
+
+	status := []byte("\r\x1b[K\x1b[Aprogress 50%")
+	if got := term.takePromptRedraw(status); string(got) != string(status) {
+		t.Fatalf("background output rewritten as a prompt repaint: %q", got)
+	}
+}

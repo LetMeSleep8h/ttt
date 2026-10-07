@@ -21,9 +21,15 @@ func shellArgs(shell string) []string {
 	if err != nil {
 		return nil
 	}
-	path := filepath.Join(dir, "ttt", "bash-integration.sh")
+	// bash runs this script as the user, so it lives where no one else can
+	// replace it; chmod fails on a directory another user created.
+	dir = filepath.Join(dir, "ttt")
+	if os.MkdirAll(dir, 0o700) != nil || os.Chmod(dir, 0o700) != nil {
+		return nil
+	}
+	path := filepath.Join(dir, "bash-integration.sh")
 	if old, err := os.ReadFile(path); err != nil || !bytes.Equal(old, bashIntegration) {
-		if os.MkdirAll(filepath.Dir(path), 0o755) != nil || os.WriteFile(path, bashIntegration, 0o644) != nil {
+		if os.WriteFile(path, bashIntegration, 0o600) != nil {
 			return nil
 		}
 	}
