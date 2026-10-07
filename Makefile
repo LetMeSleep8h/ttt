@@ -1,6 +1,6 @@
 # Makefile for ttt - terminal text editor
 
-.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build profiler
+.PHONY: all test build run clean fmt lint chaos chaos-docker chaos-docker-build profiler bench-editor
 
 all: build
 
@@ -14,6 +14,15 @@ test:
 
 run: build
 	./bin/ttt
+
+# Editor benchmarks through the full app. BENCH_LANG picks one language
+# (go, ts, cpp, python). To compare against another checkout the way CI does
+# on pull requests: BASE_DIR=../ttt-main node scripts/bench-compare.mjs
+BENCH_TIME ?= 1s
+BENCH_LANG ?=
+BENCH_FLAGS ?=
+bench-editor:
+	go test -run '^$$' -bench 'Editor/$(BENCH_LANG)' -benchmem -benchtime $(BENCH_TIME) $(BENCH_FLAGS) ./tests/e2e/
 
 fmt:
 	gofmt -w .
