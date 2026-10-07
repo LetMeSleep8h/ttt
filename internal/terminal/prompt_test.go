@@ -1,8 +1,13 @@
 package terminal
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	xterm "github.com/eugenioenko/xterm-go"
 )
@@ -78,7 +83,7 @@ func TestResizeKeepsOutputBeforeSameRowPrompt(t *testing.T) {
 	}
 }
 
-const bashPrompt = "\x1b]133;A;redraw=last\a/home/user/project [main] ➜ "
+const bashPrompt = "\x1b[36m/home/user/project\x1b[00m [main] ➜ "
 
 // readlineRedraw is what bash sends after SIGWINCH: its cursor-up count comes
 // from a prompt layout ttt cannot see, so the tests vary it.
@@ -131,8 +136,7 @@ func TestBashRedrawWithWrappedInput(t *testing.T) {
 	}
 }
 
-// readline repaints only the last line of a multi-line prompt, which is where
-// the integration puts the prompt mark.
+// readline repaints only the last line of a multi-line prompt.
 func TestBashRedrawKeepsEarlierPromptLines(t *testing.T) {
 	term := newPromptTerminal(40, 10)
 	feedOutput(term, "first prompt line\r\n"+bashPrompt)
@@ -149,7 +153,7 @@ func TestBashRedrawKeepsEarlierPromptLines(t *testing.T) {
 	}
 }
 
-func TestBashRedrawIgnoresOtherOutput(t *testing.T) {
+func TestBashRedrawOnlyChecksFirstOutput(t *testing.T) {
 	term := newPromptTerminal(40, 10)
 	feedOutput(term, bashPrompt)
 
@@ -158,45 +162,82 @@ func TestBashRedrawIgnoresOtherOutput(t *testing.T) {
 	if term.promptRedrawPending {
 		t.Fatal("redraw still pending after unrelated output")
 	}
+}
 
-	feedOutput(term, readlineRedraw(0, "kept"))
-	if !strings.Contains(term.term.String(), "kept") {
-		t.Fatalf("later output was rewritten:\n%s", term.term.String())
+// A progress line redrawn by a running command after the resize matches no
+// row above it, so it is written as is.
+func TestBashRedrawLeavesProgressLinesAlone(t *testing.T) {
+	term := newPromptTerminal(40, 10)
+	feedOutput(term, "step one\r\ndownloading 49%")
+	term.resizeEmulator(20, 10)
+
+	progress := []byte("\r\x1b[K\x1b[Adownloading 50%")
+	if got := term.takePromptRedraw(progress); string(got) != string(progress) {
+		t.Fatalf("progress output rewritten as a prompt repaint: %q", got)
 	}
 }
 
-func TestBashRedrawSkippedWhileCommandRuns(t *testing.T) {
+func TestBashRedrawSkipsAltBuffer(t *testing.T) {
 	term := newPromptTerminal(40, 10)
-	feedOutput(term, bashPrompt+"sleep 5\r\n\x1b]133;C\a")
-
+	feedOutput(term, bashPrompt+"\x1b[?1049h")
 	term.resizeEmulator(20, 10)
 
 	if term.promptRedrawPending {
-		t.Fatal("a running command's output would be treated as a prompt redraw")
+		t.Fatal("redraw pending while a full-screen app is active")
 	}
 }
 
-func TestBashRedrawWithDisposedMarker(t *testing.T) {
-	term := newPromptTerminal(40, 10)
-	feedOutput(term, bashPrompt)
-	term.resizeEmulator(20, 10)
-	term.promptMarker.Dispose()
-
-	redraw := []byte(readlineRedraw(1, bashPrompt))
-	if got := term.takePromptRedraw(redraw); string(got) != string(redraw) {
-		t.Fatalf("redraw rewritten without a live prompt marker: %q", got)
+func TestFirstVisibleLine(t *testing.T) {
+	got := firstVisibleLine([]byte("\x1b]0;title\a\x1b[36mdir\x1b[00m ➜ ls\r\nnext"))
+	if got != "dir ➜ ls" {
+		t.Fatalf("firstVisibleLine = %q, want %q", got, "dir ➜ ls")
 	}
 }
 
-// A background job can start its output with the same carriage return and
-// erase; without the repaint's prompt mark it is not readline.
-func TestBashRedrawRequiresPromptMark(t *testing.T) {
-	term := newPromptTerminal(40, 10)
-	feedOutput(term, bashPrompt)
-	term.resizeEmulator(20, 10)
-
-	status := []byte("\r\x1b[K\x1b[Aprogress 50%")
-	if got := term.takePromptRedraw(status); string(got) != string(status) {
-		t.Fatalf("background output rewritten as a prompt repaint: %q", got)
+func TestBashPromptSurvivesResize(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("bash prompt repaint is Unix-only")
 	}
+	bash, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not installed")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	prompt := "long-prompt-" + strings.Repeat("p", 40) + " $ "
+	if err := os.WriteFile(filepath.Join(home, ".bashrc"), []byte("PS1='"+prompt+"'\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	term, err := New(bash, 80, 10, 0, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	term.Run()
+	defer term.Close()
+
+	waitForRawCount(t, term, "long-prompt-", 1)
+	for i, cols := range []int{40, 30, 45, 80} {
+		term.Resize(cols, 10)
+		waitForRawCount(t, term, "long-prompt-", i+2)
+	}
+
+	var screen string
+	term.Snapshot(func(x *xterm.Terminal) { screen = x.String() })
+	if n := strings.Count(screen, "long-prompt-"); n != 1 {
+		t.Fatalf("%d prompts after resizing, want 1:\n%s", n, screen)
+	}
+}
+
+func waitForRawCount(t *testing.T, term *Terminal, want string, count int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Count(string(term.RawTail()), want) >= count {
+			time.Sleep(50 * time.Millisecond)
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("shell sent %q fewer than %d times; got %q", want, count, term.RawTail())
 }
