@@ -233,6 +233,7 @@ func openContextMenu(app *App, items []ui.ContextMenuItem, x, y int) {
 	app.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), x, y)
 	menu.Borders = app.Borders
+	menu.Icons = app.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()
 		app.restoreMenuFocus()
@@ -268,6 +269,7 @@ func openMenuBarDropdown(app *App, index int) {
 	}
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), anchorX, anchorY)
 	menu.Borders = app.Borders
+	menu.Icons = app.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()
 		app.MenuBar.Selected = -1
@@ -396,6 +398,7 @@ func openEditorContextMenu(app *App, mx, my int) {
 	app.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(resolveShortcuts(reg, items), mx, my)
 	menu.Borders = app.Borders
+	menu.Icons = app.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		app.Root.PopOverlay()
 		app.restoreMenuFocus()

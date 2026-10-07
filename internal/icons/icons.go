@@ -11,6 +11,8 @@ const (
 	Lock   Name = "lock"
 	Pinned Name = "pinned"
 
+	ChevronRight Name = "chevron-right"
+
 	Function  Name = "function"
 	Class     Name = "class"
 	Interface Name = "interface"
@@ -34,6 +36,7 @@ var table = map[Name]glyphs{
 	Commit: {Plain: "●", Nerd: "\uf417"},
 	Lock:   {Plain: "⚿", Nerd: "\uea75"},
 	Pinned: {Plain: "♦", Nerd: "\ueba0"},
+	ChevronRight: {Plain: "›", Nerd: "\ueab6"},
 
 	Function:  {Plain: "ƒ", Nerd: "\uea8c"},
 	Class:     {Plain: "◆", Nerd: "\ueb5b"},
