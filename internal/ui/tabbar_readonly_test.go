@@ -134,3 +134,25 @@ func TestReadOnlySourcesShareTabLabel(t *testing.T) {
 		}
 	}
 }
+
+func TestTabLabelPinnedFollowsIconMode(t *testing.T) {
+	pin := icons.Get(config.IconsNerdFont, icons.Pinned)
+	cases := []struct {
+		name string
+		mode string
+		want string
+	}{
+		{name: "pinned active plain", mode: config.IconsNone, want: " notes.txt ♦ "},
+		{name: "pinned active nerd font", mode: config.IconsNerdFont, want: " notes.txt " + pin + " "},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tb := NewTabBarWidget()
+			tb.Icons = tc.mode
+			got := tb.tabLabel(Tab{Name: "notes.txt", Active: true, Closable: true, Pinned: true})
+			if got != tc.want {
+				t.Fatalf("tabLabel = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

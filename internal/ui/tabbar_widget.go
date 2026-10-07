@@ -96,7 +96,7 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 	label := prefix + name + suffix
 	if tab.Active && tab.Closable {
 		if tab.Pinned {
-			label += " ♦"
+			label += " " + icons.Get(t.Icons, icons.Pinned)
 		} else {
 			label += " x"
 		}
@@ -106,15 +106,16 @@ func (t *TabBarWidget) tabLabel(tab Tab) string {
 }
 
 // drawTabLabel draws a tab label from x, advancing by each rune's display width
-// and clipping to the scrollable inner zone. The dirty marker keeps its own
-// style so it stays visible against the tab background.
-func drawTabLabel(surface Surface, x, innerLeft, innerRight int, label string, dirty bool, pinned bool, style term.Style) {
+// and clipping to the scrollable inner zone. The dirty and pinned markers keep
+// their own styles so they stay visible against the tab background.
+func drawTabLabel(surface Surface, x, innerLeft, innerRight int, label string, dirty bool, pinned bool, mode string, style term.Style) {
+	pinnedGlyph := icons.Get(mode, icons.Pinned)
 	for _, ch := range label {
 		chStyle := style
 		if dirty && ch == '●' {
 			chStyle = term.StyleWarning
 		}
-		if pinned && ch == '♦' {
+		if pinned && string(ch) == pinnedGlyph {
 			chStyle = term.StyleMuted
 		}
 		w := textwidth.Rune(ch)
@@ -237,12 +238,12 @@ func (t *TabBarWidget) Render(surface Surface) {
 			if sx >= innerLeft && sx < innerRight {
 				surface.SetCell(sx, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
-			drawTabLabel(surface, sx+1, innerLeft, innerRight, s.label, dirty, pinned, term.StyleActiveTab)
+			drawTabLabel(surface, sx+1, innerLeft, innerRight, s.label, dirty, pinned, t.Icons, term.StyleActiveTab)
 			if ex-1 >= innerLeft && ex-1 < innerRight {
 				surface.SetCell(ex-1, 1, term.Cell{Ch: b.Vertical, Style: bs})
 			}
 		} else {
-			drawTabLabel(surface, sx, innerLeft, innerRight, s.label, dirty, pinned, term.StyleInactiveTab)
+			drawTabLabel(surface, sx, innerLeft, innerRight, s.label, dirty, pinned, t.Icons, term.StyleInactiveTab)
 		}
 	}
 

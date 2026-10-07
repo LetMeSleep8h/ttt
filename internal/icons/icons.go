@@ -9,6 +9,7 @@ const (
 	Branch Name = "branch"
 	Commit Name = "commit"
 	Lock   Name = "lock"
+	Pinned Name = "pinned"
 
 	Function  Name = "function"
 	Class     Name = "class"
@@ -32,6 +33,7 @@ var table = map[Name]glyphs{
 	Branch: {Plain: "⎇", Nerd: ""},
 	Commit: {Plain: "●", Nerd: "\uf417"},
 	Lock:   {Plain: "⚿", Nerd: "\uea75"},
+	Pinned: {Plain: "♦", Nerd: "\ueba0"},
 
 	Function:  {Plain: "ƒ", Nerd: "\uea8c"},
 	Class:     {Plain: "◆", Nerd: "\ueb5b"},
