@@ -87,7 +87,7 @@ func TestOptionsAndChangesShareCheckedPresentationSubmenus(t *testing.T) {
 	}
 
 	options := h.app.BuildOptionsMenu()
-	for _, command := range []string{"options.useSplitDiff", "options.useUnifiedDiff", "options.useChangesOnlyDiff", "options.useFullFileDiff", "options.toggleDiffWordWrap", "options.toggleDiffHighContrast", "options.useGitFileTree", "options.useGitFileList", "changes.expandAll", "changes.collapseAll"} {
+	for _, command := range []string{"options.useSplitDiff", "options.useUnifiedDiff", "options.useChangesOnlyDiff", "options.useFullFileDiff", "options.toggleDiffWordWrap", "options.toggleDiffHighContrast", "options.toggleDiffCollapsedEmphasis", "options.useGitFileTree", "options.useGitFileList", "changes.expandAll", "changes.collapseAll"} {
 		if _, ok := findMenuCommand(options, command); !ok {
 			t.Errorf("Options menu missing %s", command)
 		}
@@ -110,6 +110,7 @@ func TestOptionsAndChangesShareCheckedPresentationSubmenus(t *testing.T) {
 	h.exec("options.useFullFileDiff")
 	h.exec("options.toggleDiffWordWrap")
 	h.exec("options.toggleDiffHighContrast")
+	h.exec("options.toggleDiffCollapsedEmphasis")
 	if dv.Mode() != ui.DiffModeUnified || dv.ContextMode() != ui.DiffContextFullFile || dv.WrapMode() != ui.DiffWrapOn || !dv.DiffHighContrast() {
 		t.Fatalf("live inherited diff = mode %v context %v wrap %v contrast %v", dv.Mode(), dv.ContextMode(), dv.WrapMode(), dv.DiffHighContrast())
 	}
@@ -125,7 +126,7 @@ func TestOptionsAndChangesShareCheckedPresentationSubmenus(t *testing.T) {
 	if err := json.Unmarshal(data, &saved); err != nil {
 		t.Fatal(err)
 	}
-	if saved.Editor.DiffMode != config.DiffModeUnified || saved.Editor.DiffContext != config.DiffContextFull || !saved.Editor.DiffWordWrap || !saved.Editor.DiffHighContrast {
+	if saved.Editor.DiffMode != config.DiffModeUnified || saved.Editor.DiffContext != config.DiffContextFull || !saved.Editor.DiffWordWrap || !saved.Editor.DiffHighContrast || !saved.Editor.DiffCollapsedEmphasis {
 		t.Fatalf("saved diff settings = %+v", saved.Editor)
 	}
 }
@@ -268,5 +269,57 @@ func TestOptionsMenuDynamicChecked(t *testing.T) {
 				t.Errorf("expected line numbers unchecked (1), got %d", item.Checked)
 			}
 		}
+	}
+}
+
+func TestOptionsMenuToggleLSPHover(t *testing.T) {
+	h := newTestHarness(t, 80, 24)
+	defer h.stop()
+
+	items := h.app.BuildOptionsMenu()
+	lspIdx, hoverIdx := -1, -1
+	for i, item := range items {
+		switch item.Command {
+		case "options.toggleLSP":
+			lspIdx = i
+		case "options.toggleLSPHover":
+			hoverIdx = i
+		}
+	}
+	if lspIdx < 0 || hoverIdx != lspIdx+1 {
+		t.Fatalf("LSP Hover should follow LSP Code Assist: lsp=%d hover=%d", lspIdx, hoverIdx)
+	}
+	if items[hoverIdx].Label != "LSP Hover" || items[hoverIdx].Checked != ui.MenuChecked {
+		t.Fatalf("hover item = %+v, want checked LSP Hover", items[hoverIdx])
+	}
+
+	h.app.ShowHover("info", 5, 5)
+	h.exec("options.toggleLSPHover")
+
+	if h.app.Settings.LSP.IsHoverEnabled() {
+		t.Fatal("hover should be disabled after toggle")
+	}
+	if h.app.EditorGroup.Hover != nil {
+		t.Error("hover popup should be dismissed when hover is disabled")
+	}
+	if item, _ := findMenuCommand(h.app.BuildOptionsMenu(), "options.toggleLSPHover"); item.Checked != ui.MenuUnchecked {
+		t.Errorf("hover item should be unchecked, got %d", item.Checked)
+	}
+
+	data, err := os.ReadFile(filepath.Join(h.dir, "config", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved config.Settings
+	if err := json.Unmarshal(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.LSP.IsHoverEnabled() {
+		t.Error("saved settings should have lsp.hover disabled")
+	}
+
+	h.exec("options.toggleLSPHover")
+	if !h.app.Settings.LSP.IsHoverEnabled() {
+		t.Error("hover should be re-enabled after second toggle")
 	}
 }
