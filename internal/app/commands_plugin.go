@@ -560,6 +560,7 @@ func (a *App) WirePlugin(p *plugin.Plugin) {
 		a.captureMenuFocus()
 		menu := ui.NewContextMenuWidget(items, x, y)
 		menu.Borders = a.Borders
+	menu.Icons = a.Settings.Appearance.Icons
 		menu.OnExec = func(cmd string) {
 			a.Root.PopOverlay()
 			a.restoreMenuFocus()
@@ -822,6 +823,7 @@ func (a *App) ShowPluginDropdownMenu(entries []widgets.MenuEntry, x, y int) {
 	a.captureMenuFocus()
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = a.Borders
+	menu.Icons = a.Settings.Appearance.Icons
 	menu.OnExec = func(cmd string) {
 		a.Root.PopOverlay()
 		a.restoreMenuFocus()
@@ -887,6 +889,7 @@ func (a *App) ShowPluginRowMenu(name string, enabled bool, x, y int) {
 	}
 	menu := ui.NewContextMenuWidget(items, x, y)
 	menu.Borders = a.Borders
+	menu.Icons = a.Settings.Appearance.Icons
 	restoreFocus := func() {
 		a.Root.PopOverlay()
 		if a.PluginsPanel != nil {

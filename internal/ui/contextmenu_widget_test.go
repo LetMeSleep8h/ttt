@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/eugenioenko/ttt/internal/config"
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/gdamore/tcell/v3"
 )
@@ -194,5 +196,37 @@ func TestContextMenuFullwidthSubmenuFlipsAndKeepsMouseBounds(t *testing.T) {
 	menu.HandleEvent(tcell.NewEventMouse(child.X+child.W-1, child.Y+2, tcell.Button1, tcell.ModNone))
 	if executed != "unified" {
 		t.Fatalf("right-edge submenu command = %q, want unified", executed)
+	}
+}
+
+func TestContextMenuSubmenuChevronFollowsIconMode(t *testing.T) {
+	nerd := icons.Get(config.IconsNerdFont, icons.ChevronRight)
+	cases := []struct {
+		name string
+		mode string
+		want rune
+	}{
+		{name: "plain", mode: config.IconsNone, want: '›'},
+		{name: "nerd font", mode: config.IconsNerdFont, want: []rune(nerd)[0]},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			menu := NewContextMenuWidget([]ContextMenuItem{
+				{Label: "File", Submenu: []ContextMenuItem{{Label: "New"}}},
+			}, 0, 0)
+			menu.Icons = tc.mode
+			cells := renderContextMenu(menu, 30, 6)
+			row := cells[1]
+			found := false
+			for _, cell := range row {
+				if cell.Ch == tc.want {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("icon mode %q: want chevron %q in the rendered menu", tc.mode, tc.want)
+			}
+		})
 	}
 }

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/eugenioenko/ttt/internal/icons"
 	"github.com/eugenioenko/ttt/internal/term"
 	"github.com/eugenioenko/ttt/internal/textwidth"
 
@@ -36,6 +37,7 @@ type ContextMenuWidget struct {
 	OnDismiss      func()
 	OnNavigate     func(dir int)
 	OnMouseOutside func(ev tcell.Event)
+	Icons          string
 	Submenu        *ContextMenuWidget
 	parent         *ContextMenuWidget
 	submenuIndex   int
@@ -191,7 +193,8 @@ func (c *ContextMenuWidget) renderAt(surface Surface, x, y, sw, sh int) {
 			surface.DrawText(sx, row, it.Shortcut, x+menuW-1, shortStyle)
 		}
 		if len(it.Submenu) > 0 && menuW >= 3 {
-			surface.SetCell(x+menuW-2, row, term.Cell{Ch: '›', Style: style})
+			chevron := []rune(icons.Get(c.Icons, icons.ChevronRight))
+			surface.SetCell(x+menuW-2, row, term.Cell{Ch: chevron[0], Style: style})
 		}
 	}
 
@@ -345,6 +348,7 @@ func (c *ContextMenuWidget) openSelectedSubmenu() bool {
 	}
 	child := NewContextMenuWidget(items, 0, 0)
 	child.Borders = c.Borders
+	child.Icons = c.Icons
 	child.parent = c
 	child.firstEvent = false
 	c.Submenu = child
