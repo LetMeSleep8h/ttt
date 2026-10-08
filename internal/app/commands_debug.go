@@ -142,9 +142,11 @@ func (a *App) debugRunPlugin() {
 			NetworkHTTP:       plugin.NetworkHTTP{All: true},
 			EventsFile:        true,
 			EventsEditor:      true,
+			Storage:           true,
 		},
 	}
 
+	p.StorageDir = a.PluginManager.StorageDir()
 	if err := p.InitFromSource(source); err != nil {
 		a.Status.SetNotification("Plugin error: "+err.Error(), view.NotifyError, 5*time.Second)
 		return
@@ -258,6 +260,7 @@ func LoadPluginFromFile(a *App, path string) {
 			NetworkHTTP:       plugin.NetworkHTTP{All: true},
 			EventsFile:        true,
 			EventsEditor:      true,
+			Storage:           true,
 			Settings:          true,
 			SettingsKeys:      []string{"*"},
 		},
@@ -268,6 +271,7 @@ func LoadPluginFromFile(a *App, path string) {
 	// wireAPIs runs before Init.
 	p.Settings = NewPluginSettingsAPI(a)
 
+	p.StorageDir = a.PluginManager.StorageDir()
 	if err := p.InitFromSource(string(source)); err != nil {
 		slog.Error("init plugin from file", "path", path, "error", err)
 		return

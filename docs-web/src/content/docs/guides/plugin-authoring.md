@@ -2199,6 +2199,34 @@ local settings = require("ttt.settings")
 settings.set("formatters.go", "gofmt")
 ```
 
+### `ttt.storage` Module
+
+Persistent key-value storage private to the plugin. Requires the `storage` permission.
+
+```lua
+local storage = require("ttt.storage")
+
+storage.set("bookmarks", { ["/home/me/app/main.go"] = { 12, 40 } })
+local marks = storage.get("bookmarks")  -- the stored value, or nil
+storage.remove("bookmarks")
+local keys = storage.keys()             -- sorted array of key names
+```
+
+| Function | Description |
+|----------|-------------|
+| `storage.get(key)` | Returns the value stored under `key`, or `nil`. |
+| `storage.set(key, value)` | Stores `value` under `key`. Setting `nil` removes the key. |
+| `storage.remove(key)` | Removes `key`. |
+| `storage.keys()` | Returns the stored keys, sorted. |
+
+Values can be anything `ttt.json` can encode: strings, numbers, booleans, and tables of those.
+
+Each plugin's data lives in its own file, `<config dir>/state/plugins/<name>.json`, and no other plugin can read it. Every `set` and `remove` writes to disk right away, so data survives a crash. A plugin can store at most 1 MB; a `set` that would go over the limit raises an error and leaves the stored data unchanged. Uninstalling the plugin deletes its file.
+
+Storage works at load time, so a plugin can restore its state while it initializes.
+
+Several ttt windows can share a plugin's storage. Each `set` re-reads the file if another window changed it, so windows writing different keys keep each other's data, while two writes to the same key keep the last one. Prefer one key per item (for example, one key per file path) over a single key holding everything, so windows don't overwrite each other's changes.
+
 ## Styles
 
 Named styles available for both widget and raw cell rendering. Actual colors depend on the user's theme.
@@ -2335,6 +2363,7 @@ Permissions are declared in the manifest's `permissions` object. Boolean permiss
 | `events.editor`  | boolean  | Listen for editor events: `editor.change`, `cursor.change`, `tab.change`. |
 | `settings`       | boolean  | Read/write editor settings (`ttt.settings`).      |
 | `settings_keys`  | string[] | Allowed settings key patterns. Use `group.*` for prefix match or exact key. |
+| `storage`        | boolean  | Persist private plugin data (`ttt.storage`).      |
 
 **Example with multiple permissions:**
 
@@ -2414,6 +2443,7 @@ local id = crypto.uuid()               -- "550e8400-e29b-41d4-a716-446655440000"
 | `ttt.net`      | HTTP requests                  |
 | `ttt.events`   | Event listeners                |
 | `ttt.settings` | Read/write editor settings     |
+| `ttt.storage`  | Persistent plugin data         |
 
 Any other module name passed to `require()` raises an error.
 
