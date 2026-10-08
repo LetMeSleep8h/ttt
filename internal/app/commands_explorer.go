@@ -67,6 +67,37 @@ func (a *App) ExplorerReveal() {
 	a.FileOpReveal(path)
 }
 
+func (a *App) ExplorerRevealActiveFile() {
+	path := a.revealableActiveFile()
+	if path == "" {
+		a.StatusWarn("No file open")
+		return
+	}
+	a.Sidebar.SetActivePanel("explorer")
+	if !a.Sidebar.Visible {
+		a.ShowSidebar()
+	}
+	if !a.Explorer.RevealPath(path) {
+		a.StatusWarn("File is not in the explorer")
+	}
+}
+
+func (a *App) autoRevealActiveFile() {
+	if !a.Settings.Explorer.AutoReveal {
+		return
+	}
+	if path := a.revealableActiveFile(); path != "" {
+		a.Explorer.RevealPath(path)
+	}
+}
+
+func (a *App) revealableActiveFile() string {
+	if a.EditorGroup.ActiveDiffWidget() != nil {
+		return ""
+	}
+	return a.activeFilePath()
+}
+
 func (a *App) ExplorerRemoveRoot() {
 	path := a.explorerNodePath()
 	a.ExplorerContextNode = nil
@@ -179,6 +210,12 @@ func registerExplorerCommands(app *App) {
 		ID: "explorer.reveal", Title: "Explorer: Reveal in File Manager",
 		Keywords: []string{"explorer", "file", "reveal", "manager", "folder", "finder", "open"},
 		Handler:  app.ExplorerReveal,
+	})
+
+	reg.Register(command.Command{
+		ID: "explorer.revealActiveFile", Title: "Explorer: Reveal Active File",
+		Keywords: []string{"explorer", "file", "reveal", "locate", "sync", "tree", "select"},
+		Handler:  app.ExplorerRevealActiveFile,
 	})
 
 	reg.Register(command.Command{
