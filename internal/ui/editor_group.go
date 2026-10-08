@@ -120,6 +120,11 @@ type EditorGroupWidget struct {
 	// diagSources holds diagnostics keyed by source ("lsp", "plugin:<name>")
 	// then by file path. Merged per-path into each tab's Diagnostics.
 	diagSources map[string]map[string][]Diagnostic
+	// bookmarksByPath holds bookmarks keyed by file path so they survive a
+	// preview tab being replaced (its editorTab struct is discarded entirely).
+	bookmarksByPath   map[string]map[int]Bookmark
+	bookmarkSyncPath  string
+	OnBookmarkChanged func(path string, line int, action string, icon rune, style term.Style)
 	// OnDiagnosticsChanged fires whenever any source's diagnostics change, so
 	// the Diagnostics panel can rebuild from DiagnosticsByPath().
 	OnDiagnosticsChanged func()
@@ -157,6 +162,11 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 	tabBar.OnNextTab = func() { g.NextTab() }
 	tabBar.OnPrevTab = func() { g.PrevTab() }
 	tabBar.OnDoubleClick = func() { g.NewFile() }
+	editor.OnBookmarkChange = func(line int, action string, b Bookmark) {
+		if g.OnBookmarkChanged != nil {
+			g.OnBookmarkChanged(g.ActiveFilePath(), line, action, b.Icon, b.Style)
+		}
+	}
 	undoStack := g.newUndoStack()
 	sel := &selection.Selection{}
 	editor.Undo = undoStack
@@ -1137,6 +1147,7 @@ func (g *EditorGroupWidget) SaveAs(path string) bool {
 	if t.Undo != nil {
 		t.Undo.MarkSaved()
 	}
+	g.moveBookmarks(t.FilePath, path)
 	t.FilePath = path
 	t.Virtual = false
 	if g.SyntaxHighlight {
@@ -1146,6 +1157,32 @@ func (g *EditorGroupWidget) SaveAs(path string) bool {
 	}
 	g.syncTabs()
 	return true
+}
+
+func (g *EditorGroupWidget) moveBookmarks(oldPath, newPath string) {
+	prefix := oldPath + string(filepath.Separator)
+	remap := func(p string) (string, bool) {
+		switch {
+		case p == oldPath:
+			return newPath, true
+		case oldPath != "" && strings.HasPrefix(p, prefix):
+			return filepath.Join(newPath, strings.TrimPrefix(p, prefix)), true
+		}
+		return "", false
+	}
+	if p, ok := remap(g.bookmarkSyncPath); ok {
+		g.bookmarkSyncPath = p
+	}
+	moved := map[string]map[int]Bookmark{}
+	for p, b := range g.bookmarksByPath {
+		if np, ok := remap(p); ok {
+			delete(g.bookmarksByPath, p)
+			moved[np] = b
+		}
+	}
+	for p, b := range moved {
+		g.bookmarksByPath[p] = b
+	}
 }
 
 // RenamePath repoints open tabs after a path is renamed on disk. oldPath may be
@@ -1161,6 +1198,7 @@ func (g *EditorGroupWidget) RenamePath(oldPath, newPath string) bool {
 	if oldPath == "" || newPath == "" || oldPath == newPath {
 		return false
 	}
+	g.moveBookmarks(oldPath, newPath)
 	prefix := oldPath + string(filepath.Separator)
 	renamed := false
 	for i := range g.tabs {
@@ -2015,6 +2053,14 @@ func (g *EditorGroupWidget) syncTabs() {
 			if g.Editor.BracketPairColorization && len(t.Buf.Lines) > maxBracketColorLines {
 				g.notify("Bracket pair colorization disabled for large file")
 			}
+			if g.bookmarkSyncPath != "" {
+				if g.bookmarksByPath == nil {
+					g.bookmarksByPath = make(map[string]map[int]Bookmark)
+				}
+				g.bookmarksByPath[g.bookmarkSyncPath] = g.Editor.Bookmarks
+			}
+			g.Editor.Bookmarks = g.bookmarksByPath[t.FilePath]
+			g.bookmarkSyncPath = t.FilePath
 		}
 		g.Editor.Buf = t.Buf
 		g.Editor.Cursor = t.Cur
