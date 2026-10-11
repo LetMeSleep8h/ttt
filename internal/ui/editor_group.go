@@ -100,6 +100,7 @@ type EditorGroupWidget struct {
 	DiffCollapsedEmphasis   bool
 	DiffSigns               bool
 	DiffSignsColor          bool
+	DiffColorGutterNumbers  bool
 	DiffGutterHighlight     bool
 	ChevronCollapsed        rune
 	ChevronExpanded         rune
@@ -167,8 +168,9 @@ func NewEditorGroupWidget(borders *term.BorderSet, tabSize int, lineNumbers bool
 		GutterStyle: gutterStyle,
 		Borders:     borders,
 
-		DiffSignsColor:      true,
-		DiffGutterHighlight: true,
+		DiffSignsColor:         true,
+		DiffColorGutterNumbers: false,
+		DiffGutterHighlight:    true,
 	}
 	tabBar.OnTabClick = func(index int) {
 		g.SwitchTab(index)
@@ -658,6 +660,11 @@ func (g *EditorGroupWidget) SetDiffSignsColor(enabled bool) {
 	g.eachDiffSigns(func(d diffSignsSurface) { d.SetDiffSignsColor(enabled) })
 }
 
+func (g *EditorGroupWidget) SetDiffColorNumbers(enabled bool) {
+	g.DiffColorGutterNumbers = enabled
+	g.eachDiffSigns(func(d diffSignsSurface) { d.SetDiffColorNumbers(enabled) })
+}
+
 func (g *EditorGroupWidget) SetDiffGutterHighlight(enabled bool) {
 	g.DiffGutterHighlight = enabled
 	g.eachDiffSigns(func(d diffSignsSurface) { d.SetDiffGutterHighlight(enabled) })
@@ -706,6 +713,7 @@ type chevronSurface interface {
 type diffSignsSurface interface {
 	SetDiffSigns(bool)
 	SetDiffSignsColor(bool)
+	SetDiffColorNumbers(bool)
 	SetDiffGutterHighlight(bool)
 	setGutterStyle(string)
 }
